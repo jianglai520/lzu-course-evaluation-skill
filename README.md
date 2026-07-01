@@ -1,12 +1,14 @@
 # LZU Course Evaluation Skill
 
-Automate Lanzhou University teaching evaluation workflows on `jwqe.lzu.edu.cn` with DOM/Playwright-style browser automation.
+Automate Lanzhou University teaching evaluation workflows from `my.lzu.edu.cn` into the LZU evaluation system with DOM/Playwright-style browser automation.
 
 This skill is designed for agents that can inspect and operate a logged-in browser tab through the page DOM. It intentionally avoids Computer Use, coordinate clicking, screenshots, OCR, and image recognition, so the workflow is more portable and less dependent on visual model behavior.
 
 ## What It Does
 
 - Opens or continues from the LZU teaching evaluation list.
+- Starts from the PC portal entry: `http://my.lzu.edu.cn` -> `本科质量监测` -> `评教任务`.
+- Guides the user through login and task-entry clicks when the portal state is ambiguous.
 - Finds courses that are still marked `未评价` or have remaining teachers to evaluate.
 - Enters each course through `授课教师`, not the course-level `评价` shortcut.
 - Evaluates every teacher whose teacher-row operation is `评价`.
@@ -29,7 +31,13 @@ Install or place this folder under a Codex skills directory, then invoke:
 Use $lzu-course-evaluation to complete the open LZU course evaluation page with DOM/Playwright automation.
 ```
 
-The user should first log in to `https://jwqe.lzu.edu.cn/xssy` in Chrome or another browser session that the agent can control through DOM automation. If the page redirects to login or shows a CAPTCHA, the agent should stop and ask the user to complete that step.
+The user should first open or allow the agent to open `http://my.lzu.edu.cn` in Chrome or another browser session that the agent can control through DOM automation. The expected PC path is:
+
+```text
+信息服务门户 -> 本科质量监测 -> 评教任务 -> 当前评教任务
+```
+
+If the page shows login, CAPTCHA, or multiple ambiguous tasks, the agent should ask the user to complete that step or specify which task to open.
 
 ## Safety Notes
 

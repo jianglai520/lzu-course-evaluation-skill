@@ -1,13 +1,13 @@
 ---
 name: lzu-course-evaluation
-description: Automate Lanzhou University teaching evaluation pages on jwqe.lzu.edu.cn using DOM/Playwright-style browser automation, without Computer Use, screenshots, OCR, or image recognition. Use when the user asks Codex or another agent to complete, submit, continue, or verify LZU midterm/final course evaluations, especially workflows with course rows, "授课教师" teacher dialogs, teacher-level "评价", 13 radio questions, 2 text comments, and final "已评价" verification.
+description: Automate Lanzhou University teaching evaluation pages from the LZU portal my.lzu.edu.cn into the undergraduate quality monitoring/evaluation task flow using DOM/Playwright-style browser automation, without Computer Use, screenshots, OCR, or image recognition. Use when the user asks Codex or another agent to open, guide, complete, submit, continue, or verify LZU midterm/final course evaluations, especially workflows involving "本科质量监测", "评教任务", course rows, "授课教师" teacher dialogs, teacher-level "评价", 13 radio questions, 2 text comments, and final "已评价" verification.
 ---
 
 # LZU Course Evaluation
 
 ## Scope
 
-Automate the LZU teaching quality system at `https://jwqe.lzu.edu.cn/xssy` / `/hjjss` from an already authenticated browser session.
+Automate the LZU teaching evaluation flow from the information service portal `http://my.lzu.edu.cn` to the teaching quality system. The PC entry path is: log in to `http://my.lzu.edu.cn`, choose `本科质量监测`, enter the `评教任务` module, then open the current evaluation task.
 
 Use DOM or Playwright-style browser automation only. Do not use Computer Use, coordinate clicks, screenshots, OCR, or image recognition. If login, CAPTCHA, or account credentials are needed, ask the user to complete them in Chrome and continue only after the user says the evaluation page is ready.
 
@@ -15,7 +15,16 @@ Submit only when the user explicitly asks to complete or submit evaluations. If 
 
 ## DOM Contracts
 
-The current LZU evaluation page is an Element UI app. Prefer these stable DOM signals:
+The portal entry page may differ by user session. Guide the user with visible text and links/buttons:
+
+- Start at `http://my.lzu.edu.cn`.
+- Ask the user to log in if the portal shows a login screen.
+- After login, guide or click the visible entry named `本科质量监测`.
+- Inside that system, guide or click `评教任务`.
+- Ask the user to click the current evaluation task if task selection is ambiguous or multiple tasks are visible.
+- Once the page shows the course evaluation list, continue with the DOM contracts below. The evaluation list is commonly under `jwqe.lzu.edu.cn` and may use `/hjjss`.
+
+The evaluation page is an Element UI app. Prefer these stable DOM signals:
 
 - Main course rows: `.el-table__body-wrapper > table > tbody > tr`, excluding rows inside `.el-dialog`.
 - Pending course: row text contains `未评价`, or the "还需评价教师数" cell is a number greater than `0`.
@@ -32,19 +41,20 @@ The current LZU evaluation page is an Element UI app. Prefer these stable DOM si
 ## Workflow
 
 1. Use Chrome extension automation, Playwright, or equivalent DOM-capable browser control against the user's logged-in browser tab.
-2. Navigate to `https://jwqe.lzu.edu.cn/xssy` if needed. If redirected to login, stop and ask the user to log in. The evaluation list is usually at `/hjjss`.
-3. Read the main course table and build a pending list from rows with `未评价` or remaining teacher count greater than `0`.
-4. For the next pending course, click that row's `a.skjs` / `授课教师` link.
-5. Wait until `#hjjs_skjs .el-table__body-wrapper tbody tr` has at least one row. Some teacher dialogs load slowly; poll for several seconds instead of assuming failure after a fixed 1s sleep.
-6. In the teacher dialog, loop over teacher rows whose operation contains `评价`:
+2. Navigate to `http://my.lzu.edu.cn`. If redirected to login, stop and ask the user to log in.
+3. After login, guide the user to click `本科质量监测`, then `评教任务`, then the current evaluation task. If DOM automation can identify these visible entries uniquely, click them; otherwise tell the user exactly which item to click and wait for them to confirm they are on the evaluation list.
+4. Read the main course table and build a pending list from rows with `未评价` or remaining teacher count greater than `0`.
+5. For the next pending course, click that row's `a.skjs` / `授课教师` link.
+6. Wait until `#hjjs_skjs .el-table__body-wrapper tbody tr` has at least one row. Some teacher dialogs load slowly; poll for several seconds instead of assuming failure after a fixed 1s sleep.
+7. In the teacher dialog, loop over teacher rows whose operation contains `评价`:
    - Click that teacher row's `评价` link.
    - Wait for the evaluation form dialog containing `课程：`.
    - Fill and submit or preview the form according to user authorization.
    - After submission, accept any active Element UI confirmation/success message.
    - Re-read the teacher rows; continue until every teacher operation is `查看`.
-7. After finishing one course, reload the page instead of relying on closing the Element UI teacher dialog. Reload clears stale dialogs reliably and preserves submitted data.
-8. Repeat from the main course list until no pending rows remain.
-9. Final verification must report all rows with remaining count `0`, result `已评价`, and operation `查看`; otherwise list the rows still pending.
+8. After finishing one course, reload the page instead of relying on closing the Element UI teacher dialog. Reload clears stale dialogs reliably and preserves submitted data.
+9. Repeat from the main course list until no pending rows remain.
+10. Final verification must report all rows with remaining count `0`, result `已评价`, and operation `查看`; otherwise list the rows still pending.
 
 ## Form Filling
 

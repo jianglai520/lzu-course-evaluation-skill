@@ -1,4 +1,4 @@
 interface:
   display_name: "LZU Course Evaluation"
-  short_description: "Automate LZU evaluations via DOM"
-  default_prompt: "Use $lzu-course-evaluation to complete the open LZU course evaluation page with DOM/Playwright automation."
+  short_description: "兰州大学评教 DOM 自动化"
+  default_prompt: "使用 $lzu-course-evaluation 通过 DOM/Playwright 自动化完成兰州大学评教。"
