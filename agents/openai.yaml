@@ -1,0 +1,4 @@
+interface:
+  display_name: "LZU Course Evaluation"
+  short_description: "Automate LZU evaluations via DOM"
+  default_prompt: "Use $lzu-course-evaluation to complete the open LZU course evaluation page with DOM/Playwright automation."
