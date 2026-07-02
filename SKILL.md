@@ -88,38 +88,44 @@ const page = context.pages().find(p =>
 
 ## DOM Contracts
 
-The evaluation page uses Element UI on LZU's teaching quality system
-(commonly `jwqe.lzu.edu.cn`, `/hjjss` endpoints).
+The evaluation page uses **Uni-app** (cross-platform Vue framework) on LZU's
+teaching quality system (`jwqe.lzu.edu.cn:8080`). Content is loaded inside an
+iframe on the portal's service-iframe page.
 
-### Course Table
+**Note:** An older version used Element UI. The current Uni-app version has
+completely different DOM structure.
 
-- **Rows**: `.el-table__body-wrapper > table > tbody > tr` (exclude rows inside `.el-dialog`)
-- **Columns**: course name, type, `授课教师`, submit time, remaining count, result, operation
-- **Pending**: text contains `未评价`, or remaining count > 0
-- **Teacher entry**: `<a class="skjs">` (授课教师) in the course row
-- **Warning**: do NOT click the course-level `评价` link directly; it may trigger
-  "只能对教师进行评教". Always enter through `授课教师`.
+### Locating the Evaluation Content
 
-### Teacher Dialog
+- Portal page: `my.lzu.edu.cn/mylzu/service-iframe?service_name=听评课`
+- Iframe (name `service-iframe`): `jwqe.lzu.edu.cn:8080`
+- Course list hash: `#/pages/student/evalutationTeach/pj?taskid=XX`
+- Evaluation form hash: `#/pages/student/evalutationTeach/evalute`
 
-- **Container**: visible `.el-dialog` with `教师工号` text
-- **Teacher table**: `#hjjs_skjs .el-table__body-wrapper tbody tr`
-- **Columns**: teacher number, name, operation (`评价` or `查看`)
-- **Target rows**: rows with operation containing `评价`
+### Course List
+
+- **Course name**: `.box-hjjs-middle-1`
+- **Remaining count**: `.box-hjjs-middle-xpj` ("还需评价X位教师")
+- **Evaluation button**: `.box-hjjs-footer-jspj` ("教师评价")
+- **Course type**: `.box-hjjs-footer-1` ("课程类型：理论课")
+- **Status**: text `未评价` (pending) or `已评价` (done)
+- **Wrapper card**: `.box-hjjs-middle`
+
+### Teacher Selection Popup (Multi-Teacher Courses)
+
+- **Overlay**: `.pop_modal`
+- **Content**: "教师选择 教师名（工号）评价"
+- **Action**: click element with exact text `评价` inside `.pop_modal`
 
 ### Evaluation Form
 
-- **Container**: visible `.el-dialog` containing `课程：`
-- **Radio questions**: 65 `.el-radio` = 13 questions x 5 options
-- **Text comments**: exactly 2 `textarea` elements (Q14, Q15)
-- **Submit**: button with text `提交` inside the form dialog
-
-### Message Box
-
-- **Selector**: `.el-message-box__wrapper:not([style*="display: none"])`
-- **Primary button**: `.el-message-box button.el-button--primary`
-- Always check for `display: none` before interacting (stale hidden boxes
-  may remain in DOM)
+- **Question containers**: 15 `.box3-1-2-2` elements
+- **Radio options**: `.uni-list-cell` inside each `.box3-1-2-2`
+  - Q1: 优秀 / 良好 / 一般 / 较差 / 差
+  - Q2-Q13: 完全符合 / 符合 / 一般 / 不符合 / 完全不符合
+- **Text areas**: `.uni-textarea-textarea` or `textarea` (×2)
+- **Submit button**: `.box3-1` (text: 提交)
+- **Confirm dialog**: `.uni-modal__btn_primary` (text: OK)
 
 ---
 
@@ -127,48 +133,34 @@ The evaluation page uses Element UI on LZU's teaching quality system
 
 ### Phase 1: Connect and Survey
 
-1. Connect to the running browser via Playwright CDP
-2. Find the evaluation page (search for `hjjss`/`jwqe.lzu.edu.cn`/`评教` in URLs)
-3. Read the course table using `page.evaluate()`:
-   - Extract rows from `.el-table__body-wrapper > table > tbody > tr` (not in `.el-dialog`)
-   - Filter rows with `未评价` or remaining teacher count > 0
-4. Report pending courses to the user. If user hasn't explicitly said "start",
-   ask for confirmation before proceeding.
+1. Connect via Playwright CDP.
+2. Find the portal page with `service-iframe` URL.
+3. Locate the child frame named `service-iframe` (jwqe.lzu.edu.cn:8080).
+4. Navigate to course list: `#/pages/student/evalutationTeach/pj?taskid=94`.
+5. Read pending courses: `.box-hjjs-middle-1` (names) + `.box-hjjs-middle-xpj` (counts).
+6. Report pending courses to the user.
 
-### Phase 2: Per-Course Evaluation
+### Phase 2: Per-Course Evaluation (While Loop)
 
-For each pending course:
+Process the first pending course each iteration:
 
-1. **Enter teacher dialog**
-   - Click `a.skjs` (授课教师) in the course row
-   - Wait for teacher dialog: poll `#hjjs_skjs tbody tr` (15s timeout, 400ms interval)
-
-2. **Read teacher list**
-   - Extract teacher rows where operation text contains `评价`
-   - Report how many teachers need evaluation
-
-3. **Per-teacher loop**
-   - For each teacher with `评价` action:
-     a. Click the `评价` link in that teacher's row
-     b. Wait for evaluation form (poll visible `.el-dialog` for `课程：` text, 10s timeout)
-     c. Fill 65 radios (13 questions; mostly top rating, 2-4 varied)
-     d. Fill 2 textareas with course-specific Chinese comments
-     e. Verify: radio count >= 65, both textareas non-empty
-     f. Ask user for confirmation on the first teacher (if not already authorized).
-        Subsequent teachers in same course auto-submit.
-     g. Click `提交`
-     h. Handle confirmation/success message boxes
-     i. Re-read teacher rows; continue if more `评价` rows remain
-
-4. **After course completes**
-   - **Reload the page** (preferred over closing dialogs; clears Element UI state)
-   - Wait 2s for table to re-render
+1. Navigate to course list, dismiss any popups.
+2. Click `.box-hjjs-footer-jspj` via JavaScript (avoids overlay interception).
+3. If `.pop_modal` with "教师选择" appears (multi-teacher course):
+   - Click the element with exact text `评价` inside the popup.
+4. Wait for `.box3-1-2-2` to appear (poll up to 15s).
+5. Fill 13 radios: click `.uni-list-cell` at index 0 (优秀/完全符合)
+   with 2-4 questions at index 1 (符合) for variety.
+6. Fill 2 textareas with course-specific Chinese comments.
+7. Click `.box3-1` (提交), then `.uni-modal__btn_primary` (确认).
+8. Navigate back to course list.
+9. Repeat until no pending courses remain.
 
 ### Phase 3: Final Verification
 
-1. Re-read the course table
-2. Verify all courses show: remaining `0`, result `已评价`, operation `查看`
-3. Report to user: all done, or list still-pending courses
+1. Re-read the course list.
+2. Verify no "还需评价" text remains for any course.
+3. Report results.
 
 ---
 
@@ -176,16 +168,14 @@ For each pending course:
 
 ### Radios (13 questions)
 
-65 `.el-radio` elements = 13 groups of 5 (0-indexed):
-- Option 0: `优秀` / `完全符合` (top)
-- Option 1: `符合`
-- Options 2-4: lower ratings (avoid unless requested)
+In each `.box3-1-2-2` container, `.uni-list-cell` elements are the radio
+options. Click the `.uni-list-cell` directly.
 
-**Strategy:**
-- Q1: always option 0
-- Q2-13: mostly option 0, with 2-4 questions at option 1 for variety
-- Rotate varied sets across teachers: `[1,6,11]`, `[2,7,10]`, `[0,5,9]`, `[3,8,12]`
-  (zero-based question indexes)
+- Q1 (优秀/良好/一般/较差/差): select index `0` (优秀).
+- Q2-Q13 (完全符合/符合/一般/不符合/完全不符合):
+  - Mostly index `0` (完全符合), 2-4 at index `1` (符合) for variety.
+  - Rotate varied sets across teachers:
+    `[1,6,11]`, `[2,7,10]`, `[0,5,9]`, `[3,8,12]` (zero-based).
 
 ### Comments (2 textareas)
 
@@ -219,10 +209,8 @@ Ideology/public suggestion: 建议今后适当增加课堂讨论和现实案例�
 ```
 
 **Pre-submit check:**
-- Radio count >= 65
+- 15 `.box3-1-2-2` containers present (13 radio + 2 text)
 - Both textareas non-empty after filling
-- Score not 0 (if page exposes a visible score)
-- Submit button is inside form dialog
 
 ---
 
@@ -238,18 +226,22 @@ npm install playwright
 # Dry run (list pending courses only)
 node scripts/autoeval.js --dry-run
 
-# Full automation (user is prompted before first submission)
+# Full automation (auto-submit, no questions asked)
+node scripts/autoeval.js --yes
+
+# Full automation (prompt before first submission)
 node scripts/autoeval.js
 ```
 
 The script implements:
-- CDP connection and page discovery
-- Course table reading
-- Teacher dialog navigation
-- 13-radio + 2-textarea form filling
-- User confirmation prompt
-- Page reload between courses
-- Final verification
+- CDP connection and page discovery (handles iframe)
+- Course list reading (Uni-app `.box-hjjs-*` classes)
+- Teacher selection popup handling (`.pop_modal`)
+- 13-radio question filling (`.uni-list-cell`)
+- 2-textarea comment filling
+- User confirmation prompt (`--yes` to skip)
+- Auto-return to course list after each submission
+- Multi-teacher course support (while loop)
 
 ---
 
@@ -257,15 +249,11 @@ The script implements:
 
 | Problem | Solution |
 |---|---|
-| Direct `评价` shows "只能对教师进行评教" | Close message, use `授课教师` link |
-| Dialog close button hangs | Reload page; submitted data is preserved |
-| All teachers show `查看` already | Reload and verify course row |
+| Form not loaded after clicking | Wait longer; check if popup overlay is blocking |
+| Click intercepted by overlay | Use JavaScript `.click()` instead of Playwright locator |
+| Course list shows wrong task | Navigate with correct `taskid=XX` in URL |
 | CDP connection fails | Check `localhost:9222/json/version` |
-| Can't find eval page | List all pages; ask user which to use |
-| Form doesn't appear after clicking `评价` | Poll 10s with 300ms intervals |
-
-If DOM selectors don't match the current page, stop and inspect the DOM.
-Ask the user for the relevant HTML snippet before continuing.
+| Can't find eval page | Look for `service-iframe` named frame |
 
 ---
 
