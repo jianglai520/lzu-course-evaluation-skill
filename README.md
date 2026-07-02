@@ -1,48 +1,98 @@
 # LZU Course Evaluation Skill
 
-Automate Lanzhou University teaching evaluation workflows from `my.lzu.edu.cn` into the LZU evaluation system with DOM/Playwright-style browser automation.
+> **CDP Edition** — Controls Edge or Chrome via Playwright CDP.
+> No browser extension required.
 
-This skill is designed for agents that can inspect and operate a logged-in browser tab through the page DOM. It intentionally avoids Computer Use, coordinate clicking, screenshots, OCR, and image recognition, so the workflow is more portable and less dependent on visual model behavior.
+Automate Lanzhou University teaching evaluation from `my.lzu.edu.cn`
+using [Playwright CDP](https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp)
+(Chrome DevTools Protocol). Connects to an **already-logged-in browser**,
+reads the evaluation table, and fills out evaluations automatically.
 
-## What It Does
+No Computer Use, screenshots, OCR, or image recognition needed.
 
-- Opens or continues from the LZU teaching evaluation list.
-- Starts from the PC portal entry: `http://my.lzu.edu.cn` -> `本科质量监测` -> `评教任务`.
-- Guides the user through login and task-entry clicks when the portal state is ambiguous.
-- Finds courses that are still marked `未评价` or have remaining teachers to evaluate.
-- Enters each course through `授课教师`, not the course-level `评价` shortcut.
-- Evaluates every teacher whose teacher-row operation is `评价`.
-- Fills 13 radio questions with mostly `优秀` / `完全符合`, with a few varied `符合` choices.
-- Writes two short, course-specific Chinese comments.
-- Submits only when explicitly authorized by the user.
-- Reloads after each course to recover cleanly from Element UI dialog issues.
-- Verifies that all course rows end as `0 / 已评价 / 查看`.
+---
+
+## How It Works
+
+```
+1. User starts Edge/Chrome with --remote-debugging-port=9222
+2. User logs in to my.lzu.edu.cn -> 评教任务
+3. Playwright connects via CDP (no extension!)
+4. Script finds pending courses in the evaluation table
+5. For each course:
+   - Click "授课教师" -> teacher dialog
+   - For each teacher with "评价":
+     - Fill 13 radio questions
+     - Write 2 Chinese comments
+     - Submit (with user confirmation)
+   - Reload page
+6. Verify all courses show "已评价"
+```
+
+---
+
+## Quick Start
+
+### 1. Launch Browser with Remote Debugging
+
+**Edge (Windows):**
+```powershell
+& "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" --remote-debugging-port=9222
+```
+
+**Chrome (Windows):**
+```powershell
+& "C:\Program Files\Google\Chrome\Application\chrome.exe" --remote-debugging-port=9222
+```
+
+Verify: open `http://localhost:9222/json/version` — JSON means it's working.
+
+### 2. Log In and Navigate
+
+1. Go to `http://my.lzu.edu.cn`
+2. Log in with credentials + CAPTCHA
+3. Click: `本科质量监测 -> 评教任务 -> 当前评教任务`
+4. Leave the evaluation list page open
+
+### 3. Install Playwright and Run
+
+```bash
+cd lzu-course-evaluation-skill
+npm install playwright
+
+# Dry run — list pending courses only, no changes
+node scripts/autoeval.js --dry-run
+
+# Full automation — prompts before submitting
+node scripts/autoeval.js
+```
+
+---
 
 ## Files
 
-- `SKILL.md`: the actual Codex skill instructions.
-- `agents/openai.yaml`: UI metadata for Codex skill discovery.
+| File | Purpose |
+|---|---|
+| `SKILL.md` | Full skill instructions for AI agents |
+| `scripts/autoeval.js` | Ready-to-run Playwright automation script |
+| `agents/openai.yaml` | Codex skill discovery metadata |
+| `README.md` | This file |
+| `README.zh-CN.md` | Chinese version |
 
-## Usage
+---
 
-Install or place this folder under a Codex skills directory, then invoke:
+## Safety
 
-```text
-Use $lzu-course-evaluation to complete the open LZU course evaluation page with DOM/Playwright automation.
-```
+- **No automatic submission**: script asks for confirmation before submitting
+- **No login bypass**: user must log in manually
+- **No Computer Use / screenshots**: all DOM-based via Playwright
+- **Final verification**: checks all courses are `已评价` after completion
 
-The user should first open or allow the agent to open `http://my.lzu.edu.cn` in Chrome or another browser session that the agent can control through DOM automation. The expected PC path is:
+---
 
-```text
-信息服务门户 -> 本科质量监测 -> 评教任务 -> 当前评教任务
-```
+## Requirements
 
-If the page shows login, CAPTCHA, or multiple ambiguous tasks, the agent should ask the user to complete that step or specify which task to open.
-
-## Safety Notes
-
-This skill should not bypass authentication, solve CAPTCHA without user approval, or submit evaluations unless the user explicitly asks it to submit. If the user asks only to preview, inspect, or draft comments, the agent should stop before clicking `提交`.
-
-## License
-
-No license has been specified yet.
+- Node.js 18+
+- Playwright (`npm install playwright`)
+- Edge or Chrome (latest version)
+- Windows (primary; macOS/Linux also work with different browser paths)

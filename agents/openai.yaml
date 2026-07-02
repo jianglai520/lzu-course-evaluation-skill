@@ -1,4 +1,4 @@
 interface:
-  display_name: "LZU Course Evaluation"
-  short_description: "兰州大学评教 DOM 自动化"
-  default_prompt: "使用 $lzu-course-evaluation 通过 DOM/Playwright 自动化完成兰州大学评教。"
+  display_name: "LZU Course Evaluation (CDP)"
+  short_description: "兰州大学评教 Playwright CDP 自动化 — 支持 Edge/Chrome，无需浏览器扩展"
+  default_prompt: "使用 $lzu-course-evaluation 通过 Playwright CDP 自动化完成兰州大学评教。启动 Edge/Chrome 时添加 --remote-debugging-port=9222，登录 my.lzu.edu.cn 进入评教页面后运行 scripts/autoeval.js。"

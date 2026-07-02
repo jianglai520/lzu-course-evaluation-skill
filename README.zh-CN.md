@@ -1,75 +1,77 @@
-# 兰州大学评教自动化 Skill
+# 兰州大学评教自动化 Skill（CDP 版）
 
-这个 skill 用于在兰州大学评教系统中完成课程评教自动化。它从学校信息服务门户进入评教任务，并通过 DOM / Playwright 风格的浏览器自动化操作页面。
+> **CDP Edition** — 通过 Playwright CDP 控制 Edge 或 Chrome 浏览器完成评教。
+> **无需安装任何浏览器扩展。**
 
-它不依赖 Computer Use、屏幕坐标点击、截图、OCR 或视觉识别，因此更适合被 Codex 以外的 agent 复用。
+本技能通过 [Playwright CDP](https://playwright.dev/docs/api/class-browsertype#browser-type-connect-over-cdp)
+（Chrome DevTools 协议）连接您已登录的浏览器，自动读取评教表格并逐课程逐教师完成评教。
+完全不依赖 Computer Use、屏幕坐标点击、截图、OCR 或图像识别。
 
-## 入口路径
+---
 
-PC 端评教入口：
+## 快速上手
 
-```text
-http://my.lzu.edu.cn
--> 本科质量监测
--> 评教任务
--> 当前评教任务
+### 1. 启动浏览器（带远程调试端口）
+
+**Edge 浏览器：**
+```powershell
+& “C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe” --remote-debugging-port=9222
 ```
 
-如果页面需要登录、验证码或二次认证，agent 应暂停并让用户自己完成。登录完成后，agent 可以继续通过 DOM 自动化识别并操作评教页面。
-
-## 功能
-
-- 打开或引导进入兰州大学信息服务门户。
-- 引导用户点击 `本科质量监测` 和 `评教任务`。
-- 在评教任务列表中进入当前评教任务。
-- 查找仍为 `未评价` 或“还需评价教师数”大于 0 的课程。
-- 始终通过课程行的 `授课教师` 入口进入教师列表。
-- 对每位显示 `评价` 的教师逐个填写问卷。
-- 自动填写 13 个单选题和 2 个中文文本评价。
-- 只有用户明确要求提交时才点击 `提交`。
-- 每门课完成后刷新页面，避免 Element UI 弹窗残留导致流程卡住。
-- 最终校验所有课程是否都变成 `0 / 已评价 / 查看`。
-
-## 使用方式
-
-将本目录放入 agent 可发现的 skills 目录，例如：
-
-```text
-~/.agents/skills/lzu-course-evaluation
+**Chrome 浏览器：**
+```powershell
+& “C:\Program Files\Google\Chrome\Application\chrome.exe” --remote-debugging-port=9222
 ```
 
-然后对支持 skill 的 agent 说：
+验证：访问 `http://localhost:9222/json/version`，看到 JSON 响应即表示成功。
 
-```text
-使用 $lzu-course-evaluation 完成兰州大学评教，走 my.lzu.edu.cn -> 本科质量监测 -> 评教任务，不要使用 Computer Use 或视觉识别。
+### 2. 登录并进入评教页面
+
+1. 打开 `http://my.lzu.edu.cn`
+2. 输入账号密码 + 验证码登录
+3. 点击：`本科质量监测 -> 评教任务 -> 当前评教任务`
+4. 停留在该页面
+
+### 3. 安装 Playwright 并运行
+
+```bash
+cd lzu-course-evaluation-skill
+npm install playwright
+
+# 预览模式 — 只列出待评课程，不做任何修改
+node scripts/autoeval.js --dry-run
+
+# 全自动评教 — 提交前会请求确认
+node scripts/autoeval.js
 ```
 
-## 自动化边界
+---
 
-这个 skill 只应使用 DOM / Playwright 类自动化能力：
+## 文件说明
 
-- 不使用 Computer Use。
-- 不使用坐标点击。
-- 不使用截图识别。
-- 不使用 OCR。
-- 不绕过登录、验证码或安全验证。
-- 未获得用户明确授权时，不提交评教表单。
+| 文件 | 用途 |
+|---|---|
+| `SKILL.md` | 供 AI Agent 阅读的完整操作指南 |
+| `scripts/autoeval.js` | 可直接运行的 Playwright 自动化脚本 |
+| `agents/openai.yaml` | Codex 技能发现系统的元数据 |
+| `README.md` | 英文说明文档 |
+| `README.zh-CN.md` | 本文件（中文说明） |
 
-## 主要页面结构
+---
 
-评教页面通常是 Element UI 应用。当前已验证的稳定结构包括：
+## 安全机制
 
-- 主课程行：`.el-table__body-wrapper > table > tbody > tr`
-- 教师入口：课程行内的 `a.skjs` / `授课教师`
-- 教师列表弹窗：包含 `教师工号`，表格 ID 为 `#hjjs_skjs`
-- 教师行：`#hjjs_skjs .el-table__body-wrapper tbody tr`
-- 评价表单弹窗：包含 `课程：`
-- 单选题：65 个 `.el-radio`，即 13 题 x 5 个选项
-- 文本题：2 个 `textarea`
-- 提交按钮：评价表单弹窗内文本为 `提交` 的按钮
+- **不会自动提交**：提交第一个教师前会请求您的确认
+- **不绕过登录**：必须您手动登录后才能继续
+- **不依赖视觉识别**：全部基于 DOM 元素操作
+- **完成后校验**：自动检查所有课程是否已变为「已评价」
 
-## 注意事项
+---
 
-不要直接点击课程行里的 `评价`。部分课程会弹出“只能对教师进行评教”的提示。正确流程是先点击 `授课教师`，再在教师列表里点击每位教师的 `评价`。
+## 环境要求
 
-如果 Element UI 弹窗关闭按钮卡住，可以在提交成功后刷新页面回到主列表。已提交的数据会保留，刷新后继续处理下一门课程。
+- **Node.js 18+**
+- **Playwright**（运行 `npm install playwright` 安装）
+- **Edge 或 Chrome** 浏览器（最新版）
+- **Windows** 系统（主支持；macOS/Linux 亦可，浏览器路径不同）
+- 可正常访问 `my.lzu.edu.cn` 和 `jwqe.lzu.edu.cn`
